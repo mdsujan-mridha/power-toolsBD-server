@@ -21,6 +21,7 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 
         await client.connect();
         const productsCollection = client.db("products").collection("tools");
+        const bookingCollection = client.db("products").collection("booking");
         //   get products api 
 
         app.get('/products',async(req,res)=>{
@@ -36,7 +37,16 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
             const query = {_id:ObjectId(id)}
             const product = await productsCollection.findOne(query);
             res.send(product);
+        });
+
+        // booking product api 
+        app.post('/booking',async(req,res)=>{
+            const booking = req.body;
+            const result = await bookingCollection.insertOne(booking);
+            res.send(result);
+
         })
+
 
      }
      finally{
