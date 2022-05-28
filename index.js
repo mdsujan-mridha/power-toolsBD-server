@@ -71,9 +71,9 @@ async function run() {
                 console.log(authorization);
                 const query = { customer: customer };
                 const bookings = await bookingCollection.find(query).toArray()
-               return res.send(bookings);
+                return res.send(bookings);
             }
-            else{
+            else {
                 return res.status(403).send({ message: 'Forbidden access' });
             }
 
@@ -86,21 +86,35 @@ async function run() {
 
         });
         //    get all users 
-        app.get('/users', verifyJWT, async(req,res)=>{
-             
+        app.get('/users', verifyJWT, async (req, res) => {
+
             const users = await userCollection.find().toArray()
             res.send(users);
         });
-        // make admin from any user 
-        app.post('/users/admin/:email', async (req, res) => {
-            const email = req.params.email;     
-            const filter = { email: email };
-            const updateDoc = {
-                $set: {role: 'admin'},
-            };
-            const result = await userCollection.updateOne(filter, updateDoc);
-            res.send(result);
+        // get admin from database 
+        app.get('/admin/:email', async (req, res) => {
+            const email = req.params.email;
+            const user = await userCollection.findOne({ email: email });
+            const isAdmin = user?.role === 'admin';
+            res.send({ admin: isAdmin });
 
+        })
+        // make admin from any user 
+        app.post('/users/admin/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            const requster = req.decoded.email;
+            const requsterAccount = await userCollection.findOne({ email: requster });
+            if (requsterAccount.role === 'admin') {
+                const filter = { email: email };
+                const updateDoc = {
+                    $set: { role: 'admin' },
+                };
+                const result = await userCollection.updateOne(filter, updateDoc);
+                res.send(result);
+            }
+            else {
+                return res.status(403).send({ message: 'Only an admin can make a user as an admin ' });
+            }
         });
         // put user in database 
         app.post('/users/:email', async (req, res) => {
