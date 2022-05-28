@@ -79,7 +79,14 @@ async function run() {
                 return res.status(403).send({ message: 'Forbidden access' });
             }
 
-        })
+        });
+        // get a booking for make payment 
+        app.get('/booking/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) }
+            const booking = await bookingCollection.findOne(query);
+            res.send(booking);
+        });
         // booking product api 
         app.post('/booking', async (req, res) => {
             const booking = req.body;
@@ -100,14 +107,14 @@ async function run() {
             const isAdmin = user?.role === 'admin';
             res.send({ admin: isAdmin });
 
-        })
+        });
         // get review from mongodb 
-        app.get('/review',async(req,res)=>{
+        app.get('/review', async (req, res) => {
             const query = {}
-             const cursor = reviewCollection.find(query);
-             const reviews = await cursor.toArray();
-             res.send(reviews);
-        })
+            const cursor = reviewCollection.find(query);
+            const reviews = await cursor.toArray();
+            res.send(reviews);
+        });
         // make admin from any user 
         app.post('/users/admin/:email', verifyJWT, async (req, res) => {
             const email = req.params.email;
@@ -140,10 +147,10 @@ async function run() {
 
         });
         // post new products on mongodb 
-        app.post('/products',async(req,res)=>{
-             const addNewProducts = req.body;
-             const result = await productsCollection.insertOne(addNewProducts);
-             res.send(result);
+        app.post('/products', async (req, res) => {
+            const addNewProducts = req.body;
+            const result = await productsCollection.insertOne(addNewProducts);
+            res.send(result);
         });
         // post a rivew 
         app.post('/review', async (req, res) => {
