@@ -3,6 +3,7 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const query = require('express/lib/middleware/query');
 const port = process.env.PORT || 5000;
 const app = express();
 
@@ -43,6 +44,7 @@ async function run() {
         const productsCollection = client.db("products").collection("tools");
         const bookingCollection = client.db("products").collection("bookings");
         const userCollection = client.db("products").collection("users");
+        const reviewCollection = client.db("products").collection("reviews");
         //   get products api 
 
         app.get('/products', async (req, res) => {
@@ -99,6 +101,13 @@ async function run() {
             res.send({ admin: isAdmin });
 
         })
+        // get review from mongodb 
+        app.get('/review',async(req,res)=>{
+            const query = {}
+             const cursor = reviewCollection.find(query);
+             const reviews = await cursor.toArray();
+             res.send(reviews);
+        })
         // make admin from any user 
         app.post('/users/admin/:email', verifyJWT, async (req, res) => {
             const email = req.params.email;
@@ -126,8 +135,21 @@ async function run() {
                 $set: user,
             };
             const result = await userCollection.updateOne(filter, updateDoc, options);
-            const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
+            const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '2d' })
             res.send({ result, token });
+
+        });
+        // post new products on mongodb 
+        app.post('/products',async(req,res)=>{
+             const addNewProducts = req.body;
+             const result = await productsCollection.insertOne(addNewProducts);
+             res.send(result);
+        });
+        // post a rivew 
+        app.post('/review', async (req, res) => {
+            const review = req.body;
+            const result = await reviewCollection.insertOne(review);
+            res.send(result);
 
         });
 
