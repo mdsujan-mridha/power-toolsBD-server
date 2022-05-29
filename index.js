@@ -1,18 +1,15 @@
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-const query = require('express/lib/middleware/query');
+// const query = require('express/lib/middleware/query');
 const port = process.env.PORT || 5000;
 const app = express();
 
 app.use(express.json());
 app.use(cors());
-
-
-
-
 
 // connect with mongodb 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.mnme5.mongodb.net/?retryWrites=true&w=majority`;
@@ -45,6 +42,19 @@ async function run() {
         const bookingCollection = client.db("products").collection("bookings");
         const userCollection = client.db("products").collection("users");
         const reviewCollection = client.db("products").collection("reviews");
+        const paymenytsCollection = client.db("products").collection("payments");
+        // admin API 
+
+        const verifyAdmin = async (req, res, next) => {
+            const requester = req.decoded.email;
+            const requesterAccount = await userCollection.findOne({ email: requester });
+            if (requesterAccount.role === 'admin') {
+                next();
+            }
+            else {
+                res.status(403).send({ message: 'forbidden' });
+            }
+        }
         //   get products api 
 
         app.get('/products', async (req, res) => {
@@ -87,6 +97,36 @@ async function run() {
             const booking = await bookingCollection.findOne(query);
             res.send(booking);
         });
+        // make payment from card and store in database API 
+
+        app.post('/create-payment-intent', verifyJWT, async (req, res) => {
+            const service = req.body;
+            const price = service.price;
+            const amount = price * 100;
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            });
+            res.send({ clientSecret: paymentIntent?.client_secret })
+        });
+        //   patch booking for make sure payment 
+        app.patch('/booking/:id', async (req, res) => {
+            const id = req.params.id;
+            const payment = req.body;
+            const filter = { _id: ObjectId(id) };
+            const updateDoc = {
+                $set: {
+                    paid: true,
+                    transactionId: payment.transactionId
+                }
+            }
+
+            const result = await paymenytsCollection.insertOne(payment);
+            const updatedBooking = await bookingCollection.updateOne(filter, updateDoc);
+            res.send(updateDoc);
+        });
+
         // booking product api 
         app.post('/booking', async (req, res) => {
             const booking = req.body;
@@ -159,7 +199,21 @@ async function run() {
             res.send(result);
 
         });
+        // delete a user from database 
+        app.delete('/users/:id', verifyJWT, verifyAdmin, async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) };
+            const result = await userCollection.deleteOne(filter);
+            res.send(result);
 
+        })
+        //  delete product from booking 
+        app.delete('/booking/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) }
+            const result = await bookingCollection.deleteOne(filter);
+            res.send(result);
+        });
 
     }
     finally {
